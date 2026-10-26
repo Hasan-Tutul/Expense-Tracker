@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>বছরের রিপোর্ট</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef3f1;--card:#fff;--ink:#12201b;--mute:#5d6f68;--line:#d9e3df;--g:#0b5d46;--g2:#d8eee6;--red:#d9402a;--r:14px}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1714;--card:#15231f;--ink:#e6f0ec;--mute:#92a89f;--line:#26382f;--g:#4fd1a1;--g2:#173a2e;--red:#ff7a63}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Hind Siliguri",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px 16px 60px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0 14px}
+h1{font-size:20px;margin:0;font-weight:700}
+a.back{color:var(--g);font-weight:600;text-decoration:none}
+a.back:focus-visible,button:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+.year{display:flex;align-items:center;gap:6px}
+.year button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:18px;cursor:pointer}
+.year b{min-width:60px;text-align:center}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.stat.big{grid-column:1/-1;background:var(--g);color:#fff;border:0}
+@media(prefers-color-scheme:dark){.stat.big{background:var(--g2);color:var(--ink)}}
+.stat small{display:block;font-size:13px;opacity:.8}
+.stat b{font-size:22px}
+.stat.big b{font-size:clamp(36px,10vw,52px);line-height:1.15}
+section{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-top:14px}
+h2{font-size:16px;margin:0 0 12px}
+.chart{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:170px}
+.col{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+.col i{display:block;width:100%;background:var(--g);border-radius:6px 6px 0 0;min-height:2px}
+.col.top i{background:var(--red)}
+.col span{font-size:11px;color:var(--mute);margin-top:4px;white-space:nowrap}
+.cat{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center;margin:8px 0;font-size:14px}
+.cat .t{height:10px;background:var(--g2);border-radius:10px;overflow:hidden}
+.cat .t i{display:block;height:100%;background:var(--g);border-radius:10px}
+.empty{color:var(--mute);text-align:center;padding:18px 0}
+.note{font-size:13px;color:var(--mute);margin:8px 0 0}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>বছরের রিপোর্ট</h1>
+  <div class="year">
+    <button id="prev" aria-label="আগের বছর">‹</button><b id="ylabel"></b><button id="next" aria-label="পরের বছর">›</button>
+  </div>
+</header>
+<p><a class="back" href="index.html">‹ খরচের খাতায় ফিরুন</a></p>
+
+<div class="stats">
+  <div class="stat big"><small>এই বছরের মোট খরচ</small><b id="total">৳০</b></div>
+  <div class="stat"><small>মাসে গড় খরচ</small><b id="avg">৳০</b></div>
+  <div class="stat"><small>সবচেয়ে বেশি খরচের মাস</small><b id="peak">-</b></div>
+</div>
+
+<section>
+  <h2>মাস অনুযায়ী খরচ</h2>
+  <div class="chart" id="chart"></div>
+  <p class="note">লাল বারটি সবচেয়ে বেশি খরচের মাস।</p>
+</section>
+
+<section>
+  <h2>বছরে কোন খাতে কত গেছে</h2>
+  <div id="cats"></div>
+</section>
+</main>
+
+<script>
+const KEY='hasan-expenses-v1';
+const MS=['জানু','ফেব্রু','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টে','অক্টো','নভে','ডিসে'];
+const FULL=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+let S={expenses:[]};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const $=id=>document.getElementById(id);
+const bn=n=>Math.round(n).toLocaleString('bn-BD');
+const money=n=>'৳'+bn(n);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let year=new Date().getFullYear();
+
+function render(){
+  $('ylabel').textContent=year.toLocaleString('bn-BD',{useGrouping:false});
+  const items=S.expenses.filter(e=>e.date.startsWith(year+'-'));
+  const m=Array(12).fill(0),by={};
+  items.forEach(e=>{m[+e.date.slice(5,7)-1]+=e.amt;by[e.cat]=(by[e.cat]||0)+e.amt});
+  const total=m.reduce((a,b)=>a+b,0);
+  const active=m.filter(v=>v>0).length;
+  const max=Math.max(...m);
+  $('total').textContent=money(total);
+  $('avg').textContent=active?money(total/active):'৳০';
+  $('peak').textContent=max>0?FULL[m.indexOf(max)]:'-';
+  $('chart').innerHTML=m.map((v,i)=>`<div class="col${v===max&&v>0?' top':''}" title="${FULL[i]}: ${money(v)}"><i style="height:${max?v/max*85:0}%"></i><span>${MS[i]}</span></div>`).join('');
+  const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  $('cats').innerHTML=rows.length?rows.map(([c,v])=>`<div class="cat"><span>${esc(c)}</span><div class="t"><i style="width:${v/total*100}%"></i></div><b>${money(v)}</b></div>`).join(''):'<div class="empty">এই বছরে কোনো খরচ যোগ করা হয়নি</div>';
+}
+$('prev').onclick=()=>{year--;render()};
+$('next').onclick=()=>{year++;render()};
+render();
+</script>
+</body>
+</html>

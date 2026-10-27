@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>আমার খরচের খাতা</title>
-<style>.hl{display:flex;align-items:center;gap:8px}.ic{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:17px;cursor:pointer;line-height:1}</style>
+<style>.hl{display:flex;align-items:center;gap:8px}.ic{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:17px;cursor:pointer;line-height:1}.cb{margin:12px 0;font-size:14px}.cb .cr{display:flex;justify-content:space-between;margin-bottom:4px}.cb .t{height:10px;background:var(--g2);border-radius:10px;overflow:hidden}.cb .t i{display:block;height:100%;background:var(--g);border-radius:10px}.cb .m{font-size:12px;color:var(--mute);margin-top:2px}#bdlg{max-height:85vh;overflow:auto}</style>
 </head>
 <body>
 <main>
@@ -18,7 +18,7 @@
   <small>এই মাসের মোট খরচ</small>
   <div class="total" id="total">৳০</div>
   <div class="bar"><i id="fill" style="width:0"></i></div>
-  <div class="row"><span id="budtxt"></span><button id="setbud">বাজেট ঠিক করুন</button></div>
+  <div class="row"><span id="budtxt"></span><span><button id="setbud">মোট বাজেট</button> · <button id="setcb">খাত অনুযায়ী বাজেট</button></span></div>
 </div>
 
 <section>
@@ -36,7 +36,7 @@
 </section>
 
 <section><h2>এই মাসের খরচের তালিকা</h2><div id="list"></div></section>
-<section><h2>ক্যাটাগরি অনুযায়ী</h2><div id="cats"></div></section>
+<section><h2>খাত অনুযায়ী খরচ ও বাজেট</h2><div id="cats"></div></section>
 
 
 <section>
@@ -58,9 +58,15 @@
   </form>
   <p class="note">URL ও পাসওয়ার্ড শুধু এই ব্রাউজারে থাকে, GitHub-এ যায় না।</p>
 </dialog>
+<dialog id="bdlg">
+  <h2>খাত অনুযায়ী মাসিক বাজেট</h2>
+  <p class="note" style="margin:0 0 10px">যে খাতে বাজেট রাখতে চান না সেটা ফাঁকা রাখুন।</p>
+  <div id="bfields"></div>
+  <div class="tools" style="margin-top:14px"><button class="add" id="bsave" type="button">সেভ করুন</button><button class="ghost" id="bcancel" type="button">বাতিল</button></div>
+</dialog>
 <script src="store.js"></script>
 <script>
-const T=Store,$=T.$,money=T.money,esc=T.esc;
+const T=Store,$=T.$,money=T.money,esc=T.esc,NC='খাত ঠিক নেই';
 let cur=new Date(),mode='one';cur.setDate(1);
 $('cat').innerHTML=T.CATS.map(c=>`<option>${c}</option>`).join('');
 $('date').value=T.todayStr();
@@ -81,13 +87,21 @@ function render(){
     $('hero').classList.toggle('over',left<0);
     $('budtxt').textContent=left>=0?`বাজেট ${money(S.budget)}, বাকি ${money(left)}`:`বাজেটের চেয়ে ${money(-left)} বেশি`;
   }else{$('fill').style.width='0';$('hero').classList.remove('over');$('budtxt').textContent='মাসের বাজেট দেওয়া নেই'}
-  const by={};items.forEach(e=>by[e.cat]=(by[e.cat]||0)+e.amt);
-  const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]);
-  $('cats').innerHTML=rows.length?rows.map(([c,v])=>`<div class="cat"><span>${esc(c)}</span><div class="t"><i style="width:${v/total*100}%"></i></div><b>${money(v)}</b></div>`).join(''):'<div class="empty">এই মাসে এখনো কোনো খরচ নেই</div>';
+  const by={};items.forEach(e=>{const k=e.cat||NC;by[k]=(by[k]||0)+e.amt});
+  const cb=S.catBudgets||{};
+  const names=[...new Set([...Object.keys(by),...Object.keys(cb)])].sort((a,b)=>(by[b]||0)-(by[a]||0));
+  $('cats').innerHTML=names.length?names.map(c=>{
+    const v=by[c]||0,b=cb[c];
+    if(b>0){
+      const over=v>b;
+      return `<div class="cb"><div class="cr"><span>${esc(c)}</span><b${over?' style="color:var(--red)"':''}>${money(v)} / ${money(b)}</b></div><div class="t"><i style="width:${Math.min(100,v/b*100)}%${over?';background:var(--red)':''}"></i></div><div class="m">${over?money(v-b)+' বেশি খরচ হয়েছে':money(b-v)+' বাকি'}</div></div>`;
+    }
+    return `<div class="cat"><span>${esc(c)}</span><div class="t"><i style="width:${v/total*100}%"></i></div><b>${money(v)}</b></div>`;
+  }).join(''):'<div class="empty">এই মাসে এখনো কোনো খরচ নেই</div>';
   $('list').innerHTML=items.length?items.map(e=>{
     const d=new Date(e.date+'T00:00:00');
     const btn=e.rec?`<button data-rid="${e.rid}">মাসিক বন্ধ করুন</button>`:`<button data-id="${e.id}">মুছুন</button>`;
-    return `<div class="item"><div><div class="n">${esc(e.note||e.cat)}${e.rec?'<span class="tag">মাসিক</span>':''}</div><div class="m">${esc(e.cat)} · ${d.getDate().toLocaleString('bn-BD')} ${T.MONTHS[d.getMonth()]}</div></div><div class="a">${money(e.amt)}<br>${btn}</div></div>`}).join(''):'<div class="empty">উপরের ফর্ম থেকে প্রথম খরচটি যোগ করুন</div>';
+    return `<div class="item"><div><div class="n">${esc(e.who?e.who+'-কে দেওয়া'+(e.note?' · '+e.note:''):(e.note||e.cat))}${e.who?'<span class="tag">পরিবার</span>':''}${e.rec?'<span class="tag">মাসিক</span>':''}</div><div class="m">${esc(e.cat||NC)} · ${d.getDate().toLocaleString('bn-BD')} ${T.MONTHS[d.getMonth()]}</div></div><div class="a">${money(e.amt)}<br>${btn}</div></div>`}).join(''):'<div class="empty">উপরের ফর্ম থেকে প্রথম খরচটি যোগ করুন</div>';
 }
 function setMode(m){
   mode=m;
@@ -134,6 +148,19 @@ $('list').addEventListener('click',ev=>{
 });
 $('prev').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);render();setMode(mode)};
 $('next').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);render();setMode(mode)};
+const showD=id=>{const d=$(id);d.showModal?d.showModal():d.setAttribute('open','')};
+const hideD=id=>{const d=$(id);d.close?d.close():d.removeAttribute('open')};
+$('setcb').onclick=()=>{
+  const cb=T.S.catBudgets||{};
+  $('bfields').innerHTML=T.CATS.map(c=>`<div style="margin-bottom:8px"><label>${esc(c)} (৳)</label><input type="number" min="0" step="any" inputmode="decimal" data-c="${esc(c)}" value="${cb[c]||''}"></div>`).join('');
+  showD('bdlg');
+};
+$('bcancel').onclick=()=>hideD('bdlg');
+$('bsave').onclick=()=>{
+  const cb={};
+  $('bfields').querySelectorAll('input').forEach(i=>{const v=parseFloat(i.value);if(v>0)cb[i.dataset.c]=v});
+  T.S.catBudgets=cb;T.commit();hideD('bdlg');render();T.toast('খাত অনুযায়ী বাজেট সেভ হয়েছে');
+};
 $('setbud').onclick=()=>{
   const v=prompt('প্রতি মাসের বাজেট কত টাকা? (বন্ধ করতে ০ দিন)',T.S.budget||'');
   if(v===null)return;

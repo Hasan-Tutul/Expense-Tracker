@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>পরিবার</title>
+<style>.chip{display:inline-flex;gap:6px;align-items:center;padding:4px 6px 4px 12px;border:1px solid var(--line);border-radius:99px;margin:0 6px 6px 0;background:var(--bg)}.chip button{background:none;border:0;color:var(--red);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px}.mc{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}.mc:first-child{border-top:0;margin-top:0;padding-top:0}.mh{display:flex;justify-content:space-between;align-items:baseline}.mh b{font-size:17px}</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>পরিবার</h1>
+  <div class="month"><button id="prev" aria-label="আগের মাস">‹</button><b id="mlabel"></b><button id="next" aria-label="পরের মাস">›</button></div>
+</header>
+
+<div class="stats"><div class="stat big"><small>এই মাসে পরিবারকে দিয়েছি</small><b id="tot">৳০</b></div></div>
+
+<section>
+  <h2>কাকে কত টাকা দিলাম</h2>
+  <form id="f">
+    <div class="full"><label for="who">কাকে</label><select id="who"></select></div>
+    <div><label for="amt">টাকা (৳)</label><input id="amt" type="number" min="1" step="any" inputmode="decimal" required></div>
+    <div><label for="date">তারিখ</label><input id="date" type="date" required></div>
+    <div><label for="cat">কোন খাতে (ঐচ্ছিক)</label><select id="cat"></select></div>
+    <div><label for="note">নোট</label><input id="note" type="text" maxlength="80" placeholder="যেমন: মাসের খরচ"></div>
+    <button class="add full" type="submit">সেভ করুন</button>
+  </form>
+  <p class="note">এই টাকা আপনার মাসের মোট খরচেও যোগ হবে। খাত না দিলে "খাত ঠিক নেই" হিসেবে থাকবে।</p>
+</section>
+
+<section><h2>এই মাসে কাকে কত দিয়েছি</h2><div id="list"></div></section>
+
+<section>
+  <h2>পরিবারের সদস্য</h2>
+  <div id="mem"></div>
+  <form id="mf" style="margin-top:10px">
+    <div class="full"><label for="mname">নতুন সদস্যের নাম</label><input id="mname" type="text" maxlength="40" placeholder="যেমন: আম্মু, ভাই" required></div>
+    <button class="add full" type="submit">সদস্য যোগ করুন</button>
+  </form>
+</section>
+</main>
+
+<script src="store.js"></script>
+<script>
+const T=Store,$=T.$,money=T.money,esc=T.esc,NC='খাত ঠিক নেই';
+let cur=new Date();cur.setDate(1);
+$('cat').innerHTML='<option value="">খাত ঠিক করা নেই</option>'+T.CATS.map(c=>`<option>${c}</option>`).join('');
+$('date').value=T.todayStr();
+const fam=()=>T.S.family||(T.S.family=[]);
+
+function render(){
+  const S=T.S,key=T.ymd(cur),F=fam();
+  $('mlabel').textContent=T.MONTHS[cur.getMonth()]+' '+cur.getFullYear().toLocaleString('bn-BD',{useGrouping:false});
+  const prev=$('who').value;
+  $('who').innerHTML=F.length?F.map(n=>`<option>${esc(n)}</option>`).join(''):'<option value="">আগে নিচে সদস্য যোগ করুন</option>';
+  if(F.includes(prev))$('who').value=prev;
+  $('mem').innerHTML=F.length?F.map(n=>`<span class="chip">${esc(n)}<button data-m="${esc(n)}" aria-label="${esc(n)} মুছুন">×</button></span>`).join(''):'<div class="empty">এখনো কোনো সদস্য নেই</div>';
+  const mine=S.expenses.filter(e=>e.who&&e.date.startsWith(key));
+  $('tot').textContent=money(mine.reduce((s,e)=>s+e.amt,0));
+  const names=[...new Set(mine.map(e=>e.who))];
+  $('list').innerHTML=names.length?names.map(n=>{
+    const es=mine.filter(e=>e.who===n).sort((a,b)=>b.date.localeCompare(a.date));
+    const all=S.expenses.filter(e=>e.who===n).reduce((s,e)=>s+e.amt,0);
+    return `<div class="mc"><div class="mh"><b>${esc(n)}</b><b>${money(es.reduce((s,e)=>s+e.amt,0))}</b></div><div class="m" style="font-size:12px;color:var(--mute)">সব মিলিয়ে এ পর্যন্ত ${money(all)}</div>`+
+      es.map(e=>{const d=new Date(e.date+'T00:00:00');return `<div class="item"><div><div class="n">${esc(e.cat||NC)}</div><div class="m">${d.getDate().toLocaleString('bn-BD')} ${T.MONTHS[d.getMonth()]}${e.note?' · '+esc(e.note):''}</div></div><div class="a">${money(e.amt)}<br><button data-id="${e.id}">মুছুন</button></div></div>`}).join('')+'</div>';
+  }).join(''):'<div class="empty">এই মাসে পরিবারের কাউকে টাকা দেওয়া হয়নি</div>';
+}
+
+$('f').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const amt=parseFloat($('amt').value),who=$('who').value;
+  if(!who){T.toast('আগে নিচে থেকে একজন সদস্য যোগ করুন');return}
+  if(!(amt>0)||!$('date').value)return;
+  T.S.expenses.push({id:Date.now(),amt,cat:$('cat').value,date:$('date').value,note:$('note').value.trim(),who});
+  const d=new Date($('date').value+'T00:00:00');cur=new Date(d.getFullYear(),d.getMonth(),1);
+  T.commit();$('amt').value='';$('note').value='';
+  render();T.toast(who+'-কে '+money(amt)+' দেওয়া সেভ হয়েছে');
+});
+$('mf').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const n=$('mname').value.trim();if(!n)return;
+  const F=fam();
+  if(F.includes(n)){T.toast('এই নামে সদস্য আগেই আছে');return}
+  F.push(n);T.commit();$('mname').value='';render();$('who').value=n;
+});
+$('mem').addEventListener('click',ev=>{
+  const b=ev.target.closest('button[data-m]');if(!b)return;
+  if(confirm(b.dataset.m+'-কে তালিকা থেকে সরাবেন? আগের দেওয়ার হিসাব থেকে যাবে।')){T.S.family=fam().filter(x=>x!==b.dataset.m);T.commit();render()}
+});
+$('list').addEventListener('click',ev=>{
+  const b=ev.target.closest('button[data-id]');if(!b)return;
+  if(confirm('এই হিসাবটি মুছে ফেলবেন?')){T.S.expenses=T.S.expenses.filter(e=>String(e.id)!==b.dataset.id);T.commit();render()}
+});
+$('prev').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);render()};
+$('next').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);render()};
+T.start(render);
+</script>
+</body>
+</html>

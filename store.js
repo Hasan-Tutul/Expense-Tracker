@@ -66,12 +66,12 @@ const CSS=`:root{--bg:#eef3f1;--card:#fff;--ink:#12201b;--mute:#5d6f68;--line:#d
 @media(prefers-color-scheme:dark){:root{--bg:#0d1714;--card:#15231f;--ink:#e6f0ec;--mute:#92a89f;--line:#26382f;--g:#4fd1a1;--g2:#173a2e;--red:#ff7a63;--onG:#07201a;--hero:#173a2e;--onHero:#e6f0ec;--fill:#4fd1a1}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Hind Siliguri",system-ui,sans-serif}
-main{max-width:720px;margin:0 auto;padding:16px 16px 80px}
-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0 12px}
-nav a{padding:7px 13px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-size:14px;font-weight:500}
-nav a.on{background:var(--g);color:var(--onG);border-color:var(--g)}
+main{max-width:720px;margin:0 auto;padding:12px 16px 100px}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;justify-content:center;gap:6px;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line)}
+nav a{flex:1;max-width:160px;text-align:center;padding:9px 4px;border-radius:99px;border:1px solid var(--line);background:var(--bg);color:var(--ink);text-decoration:none;font-size:14px;font-weight:500}
+nav a.on{background:var(--g);color:var(--onG);border-color:var(--g);font-weight:600}
 .dot{background:var(--red);color:#fff;border-radius:99px;font-size:12px;padding:0 6px;margin-left:5px;display:none}
-.sync{font-size:12px;color:var(--mute);width:100%}.sync.bad{color:var(--red)}
+.sync{font-size:12px;color:var(--mute);margin:0 0 6px}.sync.bad{color:var(--red)}
 header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0 14px}
 h1{font-size:20px;margin:0;font-weight:700}h2{font-size:16px;margin:0 0 12px}
 .month{display:flex;align-items:center;gap:6px}
@@ -112,7 +112,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{ou
 .tools{display:flex;gap:8px;flex-wrap:wrap}
 .tools button,.tools label{padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;cursor:pointer;margin:0}
 .note{font-size:13px;color:var(--mute);margin:10px 0 0}
-.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,80px);background:var(--g);color:var(--onG);padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;transition:.25s;z-index:9;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:90vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,80px);background:var(--g);color:var(--onG);padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;transition:.25s;z-index:9;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:90vw;text-align:center}
 .toast.show{transform:translate(-50%,0);opacity:1}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
@@ -145,10 +145,11 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 function start(fn){
   const l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap';document.head.appendChild(l);
   const st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
-  const p=location.pathname,pg=p.endsWith('dues.html')?1:p.endsWith('report.html')?2:0;
+  const p=location.pathname,pg=p.endsWith('dues.html')?1:p.endsWith('family.html')?2:p.endsWith('report.html')?3:0;
   const nav=document.createElement('nav');
-  nav.innerHTML=[['index.html','খাতা'],['dues.html','লেনদেন'],['report.html','রিপোর্ট']].map((x,i)=>`<a href="${x[0]}"${i===pg?' class="on"':''}>${x[1]}${i===1?'<span class="dot" id="dotn"></span>':''}</a>`).join('')+'<span class="sync" id="sync"></span>';
-  document.querySelector('main').prepend(nav);
+  nav.innerHTML=[['index.html','খাতা'],['dues.html','লেনদেন'],['family.html','পরিবার'],['report.html','রিপোর্ট']].map((x,i)=>`<a href="${x[0]}"${i===pg?' class="on"':''}>${x[1]}${i===1?'<span class="dot" id="dotn"></span>':''}</a>`).join(''); 
+  const sy=document.createElement('div');sy.className='sync';sy.id='sync';
+  document.querySelector('main').prepend(sy);document.body.appendChild(nav);
   const t=document.createElement('div');t.id='toast';t.className='toast';t.setAttribute('role','status');document.body.appendChild(t);
   rerender=()=>{fn();badge()};
   rerender();

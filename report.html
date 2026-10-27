@@ -28,7 +28,7 @@ let year=new Date().getFullYear();
 function render(){
   $('ylabel').textContent=year.toLocaleString('bn-BD',{useGrouping:false});
   const m=Array(12).fill(0),by={};
-  for(let i=0;i<12;i++)T.monthItems(year+'-'+T.p2(i+1)).forEach(e=>{m[i]+=e.amt;by[e.cat]=(by[e.cat]||0)+e.amt});
+  for(let i=0;i<12;i++)T.monthItems(year+'-'+T.p2(i+1)).forEach(e=>{m[i]+=e.amt;by[e.cat||'খাত ঠিক নেই']=(by[e.cat||'খাত ঠিক নেই']||0)+e.amt});
   const total=m.reduce((a,b)=>a+b,0),active=m.filter(v=>v>0).length,max=Math.max(...m);
   $('total').textContent=money(total);
   $('avg').textContent=active?money(total/active):'৳০';

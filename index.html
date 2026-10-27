@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>আমার খরচের খাতা</title>
+<style>.hl{display:flex;align-items:center;gap:8px}.ic{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:17px;cursor:pointer;line-height:1}</style>
 </head>
 <body>
 <main>
 <header>
-  <h1>আমার খরচের খাতা</h1>
+  <div class="hl"><h1>আমার খরচের খাতা</h1><button id="cloud" class="ic" type="button" aria-label="গুগল শিট সিঙ্ক" title="গুগল শিট সিঙ্ক">☁</button></div>
   <div class="month"><button id="prev" aria-label="আগের মাস">‹</button><b id="mlabel"></b><button id="next" aria-label="পরের মাস">›</button></div>
 </header>
 <div id="alert"></div>
@@ -37,15 +38,6 @@
 <section><h2>এই মাসের খরচের তালিকা</h2><div id="list"></div></section>
 <section><h2>ক্যাটাগরি অনুযায়ী</h2><div id="cats"></div></section>
 
-<section>
-  <h2>গুগল শিট সিঙ্ক</h2>
-  <form id="sf">
-    <div class="full"><label for="surl">Web app URL</label><input id="surl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
-    <div class="full"><label for="skey">গোপন পাসওয়ার্ড</label><input id="skey" type="password" autocomplete="off"></div>
-    <button class="add full" type="submit">সেভ ও টেস্ট করুন</button>
-  </form>
-  <p class="note">URL ও পাসওয়ার্ড শুধু এই ব্রাউজারে থাকে, GitHub-এ যায় না। নতুন ডিভাইসে একবার এগুলো বসালেই সব ডেটা চলে আসবে।</p>
-</section>
 
 <section>
   <h2>ব্যাকআপ</h2>
@@ -56,6 +48,16 @@
   </div>
 </section>
 </main>
+<dialog id="sdlg">
+  <h2>☁ গুগল শিট সিঙ্ক</h2>
+  <form id="sf">
+    <div class="full"><label for="surl">Web app URL</label><input id="surl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="full"><label for="skey">গোপন পাসওয়ার্ড</label><input id="skey" type="password" autocomplete="off"></div>
+    <button class="add full" type="submit">সেভ ও টেস্ট করুন</button>
+    <button class="ghost full" id="sclose" type="button">বন্ধ করুন</button>
+  </form>
+  <p class="note">URL ও পাসওয়ার্ড শুধু এই ব্রাউজারে থাকে, GitHub-এ যায় না।</p>
+</dialog>
 <script src="store.js"></script>
 <script>
 const T=Store,$=T.$,money=T.money,esc=T.esc;
@@ -142,7 +144,11 @@ $('sf').addEventListener('submit',ev=>{
   ev.preventDefault();
   T.setCfg($('surl').value,$('skey').value);
   T.sync();
+  closeS();window.scrollTo({top:0,behavior:'smooth'});
 });
+const closeS=()=>{const d=$('sdlg');d.close?d.close():d.removeAttribute('open')};
+$('cloud').onclick=()=>{const d=$('sdlg');d.showModal?d.showModal():d.setAttribute('open','')};
+$('sclose').onclick=closeS;
 function download(name,text,type){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);

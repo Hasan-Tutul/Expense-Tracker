@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>লেনদেন ও বকেয়া</title>
+</head>
+<body>
+<main>
+<header><h1>লেনদেন ও বকেয়া</h1></header>
+
+<div class="stats">
+  <div class="stat get"><small>আমি পাবো (মোট)</small><b id="sget">৳০</b></div>
+  <div class="stat pay"><small>আমাকে দিতে হবে (মোট)</small><b id="spay">৳০</b></div>
+</div>
+
+<div id="urgent"></div>
+
+<section>
+  <h2>নতুন লেনদেন যোগ করুন</h2>
+  <form id="f">
+    <div class="full"><label for="dir">ধরন</label>
+      <select id="dir"><option value="get">আমি পাবো (কেউ আমাকে দেবে)</option><option value="pay">আমাকে দিতে হবে (আমি কাউকে দেব)</option></select></div>
+    <div><label for="person">কার সাথে</label><input id="person" type="text" maxlength="60" required></div>
+    <div><label for="amt">টাকা (৳)</label><input id="amt" type="number" min="1" step="any" inputmode="decimal" required></div>
+    <div><label for="due">পরিশোধের তারিখ</label><input id="due" type="date" required></div>
+    <div><label for="note">নোট</label><input id="note" type="text" maxlength="80" placeholder="যেমন: ক্লায়েন্টের বিল"></div>
+    <button class="add full" type="submit">সেভ করুন</button>
+  </form>
+  <p class="note">তারিখের ২ দিন আগে থেকে লেনদেনটি "জরুরি" তালিকায় সবার উপরে আসবে এবং খাতার পেজেও সতর্কতা দেখাবে।</p>
+</section>
+
+<section><h2>আমি পাবো</h2><div id="get"></div></section>
+<section><h2>আমাকে দিতে হবে</h2><div id="pay"></div></section>
+<section><details><summary id="dsum">পরিশোধ হয়ে গেছে</summary><div id="done" style="margin-top:10px"></div></details></section>
+</main>
+
+<dialog id="dlg">
+  <h2>নতুন তারিখ দিন</h2>
+  <p class="note" id="dwho" style="margin:0 0 10px"></p>
+  <input type="date" id="ndate">
+  <div class="tools" style="margin-top:14px"><button class="add" id="dsave" type="button">সেভ করুন</button><button class="ghost" id="dcancel" type="button">বাতিল</button></div>
+</dialog>
+
+<script src="store.js"></script>
+<script>
+const T=Store,$=T.$,money=T.money,esc=T.esc;
+let ext=null;
+
+function row(d){
+  const dl=T.daysLeft(d.due);
+  let tag,cls='';
+  if(d.done)tag='✓ পরিশোধ হয়েছে'+(d.doneDate?' ('+T.fmtDate(d.doneDate)+')':'');
+  else if(dl<0){tag=T.bn(-dl)+' দিন ওভারডিউ';cls='bad'}
+  else if(dl===0){tag='আজই শেষ দিন';cls='bad'}
+  else if(dl<=T.WARN){tag=T.bn(dl)+' দিন বাকি';cls='warn'}
+  else tag=T.bn(dl)+' দিন বাকি';
+  const who=d.dir==='get'?esc(d.person)+' থেকে পাবো':esc(d.person)+'-কে দিতে হবে';
+  const acts=d.done
+    ?`<button data-act="undo" data-id="${d.id}">আবার চালু করুন</button><button class="x" data-act="del" data-id="${d.id}">মুছুন</button>`
+    :`<button data-act="done" data-id="${d.id}">${d.dir==='get'?'টাকা পেয়েছি':'পরিশোধ করেছি'}</button><button data-act="ext" data-id="${d.id}">তারিখ বদলান</button><button class="x" data-act="del" data-id="${d.id}">মুছুন</button>`;
+  return `<div class="due ${cls}"><div class="top"><div><div class="who">${who}</div><div class="m">${T.fmtDate(d.due)}${d.note?' · '+esc(d.note):''}${d.ext?' · '+T.bn(d.ext)+' বার পিছিয়েছে':''}</div></div><div class="amt">${money(d.amt)}</div></div><span class="st">${tag}</span><div class="acts">${acts}</div></div>`;
+}
+const list=(a,empty)=>a.length?a.map(row).join(''):`<div class="empty">${empty}</div>`;
+const byDue=(a,b)=>a.due.localeCompare(b.due);
+
+function render(){
+  const D=T.S.dues;
+  const pend=D.filter(d=>!d.done);
+  const urg=pend.filter(d=>T.daysLeft(d.due)<=T.WARN).sort(byDue);
+  const rest=pend.filter(d=>T.daysLeft(d.due)>T.WARN);
+  $('sget').textContent=money(pend.filter(d=>d.dir==='get').reduce((s,d)=>s+d.amt,0));
+  $('spay').textContent=money(pend.filter(d=>d.dir==='pay').reduce((s,d)=>s+d.amt,0));
+  $('urgent').innerHTML=urg.length?`<section class="pri"><h2>⚠ জরুরি (${T.bn(urg.length)})</h2>${urg.map(row).join('')}</section>`:'';
+  $('get').innerHTML=list(rest.filter(d=>d.dir==='get').sort(byDue),'এখন কোনো পাওনা নেই');
+  $('pay').innerHTML=list(rest.filter(d=>d.dir==='pay').sort(byDue),'এখন কোনো দেনা নেই');
+  const done=D.filter(d=>d.done).sort((a,b)=>b.due.localeCompare(a.due));
+  $('dsum').textContent='পরিশোধ হয়ে গেছে ('+T.bn(done.length)+')';
+  $('done').innerHTML=list(done,'কিছু নেই');
+}
+
+$('f').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const amt=parseFloat($('amt').value);if(!(amt>0))return;
+  T.S.dues.push({id:Date.now(),dir:$('dir').value,person:$('person').value.trim(),amt,due:$('due').value,note:$('note').value.trim(),done:false});
+  T.commit();
+  $('person').value='';$('amt').value='';$('note').value='';$('due').value='';
+  render();T.toast('লেনদেন সেভ হয়েছে');
+});
+
+document.querySelector('main').addEventListener('click',ev=>{
+  const b=ev.target.closest('button[data-act]');if(!b)return;
+  const d=T.S.dues.find(x=>String(x.id)===b.dataset.id);if(!d)return;
+  const a=b.dataset.act;
+  if(a==='done'){d.done=true;d.doneDate=T.todayStr();T.commit();render();T.toast('পরিশোধ হিসেবে চিহ্নিত হয়েছে')}
+  else if(a==='undo'){d.done=false;delete d.doneDate;T.commit();render()}
+  else if(a==='del'){if(confirm('এই লেনদেনটি মুছে ফেলবেন?')){T.S.dues=T.S.dues.filter(x=>x!==d);T.commit();render()}}
+  else if(a==='ext'){
+    ext=d;
+    $('dwho').textContent=d.person+' · '+money(d.amt)+' · এখনকার তারিখ: '+T.fmtDate(d.due);
+    $('ndate').value=d.due>T.todayStr()?d.due:T.todayStr();
+    const dlg=$('dlg');dlg.showModal?dlg.showModal():dlg.setAttribute('open','');
+  }
+});
+const closeDlg=()=>{const dlg=$('dlg');dlg.close?dlg.close():dlg.removeAttribute('open')};
+$('dcancel').onclick=closeDlg;
+$('dsave').onclick=()=>{
+  const v=$('ndate').value;if(!v||!ext)return;
+  if(v!==ext.due){ext.due=v;ext.ext=(ext.ext||0)+1}
+  T.commit();closeDlg();render();T.toast('নতুন তারিখ সেভ হয়েছে');
+};
+T.start(render);
+</script>
+</body>
+</html>

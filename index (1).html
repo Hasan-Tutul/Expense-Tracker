@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>আমার খরচের খাতা</title>
+</head>
+<body>
+<main>
+<header>
+  <h1>আমার খরচের খাতা</h1>
+  <div class="month"><button id="prev" aria-label="আগের মাস">‹</button><b id="mlabel"></b><button id="next" aria-label="পরের মাস">›</button></div>
+</header>
+<div id="alert"></div>
+<div class="hero" id="hero">
+  <small>এই মাসের মোট খরচ</small>
+  <div class="total" id="total">৳০</div>
+  <div class="bar"><i id="fill" style="width:0"></i></div>
+  <div class="row"><span id="budtxt"></span><button id="setbud">বাজেট ঠিক করুন</button></div>
+</div>
+
+<section>
+  <h2>খরচ যোগ করুন</h2>
+  <div class="tabs"><button id="t1" class="on" type="button">একবারের খরচ</button><button id="t2" type="button">প্রতি মাসের খরচ</button></div>
+  <form id="f">
+    <div><label for="amt">টাকা (৳)</label><input id="amt" type="number" min="1" step="any" inputmode="decimal" required></div>
+    <div id="wd"><label for="date">তারিখ</label><input id="date" type="date"></div>
+    <div id="wm" hidden><label for="day">প্রতি মাসের কত তারিখে (১-২৮)</label><input id="day" type="number" min="1" max="28" value="1"></div>
+    <div><label for="cat">ক্যাটাগরি</label><select id="cat"></select></div>
+    <div><label for="note">নোট</label><input id="note" type="text" maxlength="80" placeholder="যেমন: বাসা ভাড়া"></div>
+    <p class="note full" id="hint" hidden style="margin:0"></p>
+    <button class="add full" type="submit">খরচ সেভ করুন</button>
+  </form>
+</section>
+
+<section><h2>এই মাসের খরচের তালিকা</h2><div id="list"></div></section>
+<section><h2>ক্যাটাগরি অনুযায়ী</h2><div id="cats"></div></section>
+
+<section>
+  <h2>গুগল শিট সিঙ্ক</h2>
+  <form id="sf">
+    <div class="full"><label for="surl">Web app URL</label><input id="surl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="full"><label for="skey">গোপন পাসওয়ার্ড</label><input id="skey" type="password" autocomplete="off"></div>
+    <button class="add full" type="submit">সেভ ও টেস্ট করুন</button>
+  </form>
+  <p class="note">URL ও পাসওয়ার্ড শুধু এই ব্রাউজারে থাকে, GitHub-এ যায় না। নতুন ডিভাইসে একবার এগুলো বসালেই সব ডেটা চলে আসবে।</p>
+</section>
+
+<section>
+  <h2>ব্যাকআপ</h2>
+  <div class="tools">
+    <button id="exp">ব্যাকআপ নামান (JSON)</button>
+    <button id="csv">Excel/CSV নামান</button>
+    <label>ব্যাকআপ ফেরত আনুন<input id="imp" type="file" accept=".json" hidden></label>
+  </div>
+</section>
+</main>
+<script src="store.js"></script>
+<script>
+const T=Store,$=T.$,money=T.money,esc=T.esc;
+let cur=new Date(),mode='one';cur.setDate(1);
+$('cat').innerHTML=T.CATS.map(c=>`<option>${c}</option>`).join('');
+$('date').value=T.todayStr();
+$('day').value=Math.min(28,new Date().getDate());
+const mname=d=>T.MONTHS[d.getMonth()]+' '+d.getFullYear().toLocaleString('bn-BD',{useGrouping:false});
+
+function render(){
+  const S=T.S,key=T.ymd(cur);
+  $('mlabel').textContent=mname(cur);
+  const items=T.monthItems(key).sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id)));
+  const total=items.reduce((s,e)=>s+e.amt,0);
+  const u=T.urgent();
+  $('alert').innerHTML=u.length?`<a class="banner" href="dues.html">⚠ ${T.bn(u.length)}টি লেনদেনের তারিখ কাছে এসেছে বা পার হয়ে গেছে। দেখুন ›</a>`:'';
+  $('total').textContent=money(total);
+  if(S.budget>0){
+    const left=S.budget-total;
+    $('fill').style.width=Math.min(100,total/S.budget*100)+'%';
+    $('hero').classList.toggle('over',left<0);
+    $('budtxt').textContent=left>=0?`বাজেট ${money(S.budget)}, বাকি ${money(left)}`:`বাজেটের চেয়ে ${money(-left)} বেশি`;
+  }else{$('fill').style.width='0';$('hero').classList.remove('over');$('budtxt').textContent='মাসের বাজেট দেওয়া নেই'}
+  const by={};items.forEach(e=>by[e.cat]=(by[e.cat]||0)+e.amt);
+  const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  $('cats').innerHTML=rows.length?rows.map(([c,v])=>`<div class="cat"><span>${esc(c)}</span><div class="t"><i style="width:${v/total*100}%"></i></div><b>${money(v)}</b></div>`).join(''):'<div class="empty">এই মাসে এখনো কোনো খরচ নেই</div>';
+  $('list').innerHTML=items.length?items.map(e=>{
+    const d=new Date(e.date+'T00:00:00');
+    const btn=e.rec?`<button data-rid="${e.rid}">মাসিক বন্ধ করুন</button>`:`<button data-id="${e.id}">মুছুন</button>`;
+    return `<div class="item"><div><div class="n">${esc(e.note||e.cat)}${e.rec?'<span class="tag">মাসিক</span>':''}</div><div class="m">${esc(e.cat)} · ${d.getDate().toLocaleString('bn-BD')} ${T.MONTHS[d.getMonth()]}</div></div><div class="a">${money(e.amt)}<br>${btn}</div></div>`}).join(''):'<div class="empty">উপরের ফর্ম থেকে প্রথম খরচটি যোগ করুন</div>';
+}
+function setMode(m){
+  mode=m;
+  $('t1').classList.toggle('on',m==='one');$('t2').classList.toggle('on',m==='mon');
+  $('wd').hidden=m==='mon';$('wm').hidden=m==='one';
+  $('hint').hidden=m==='one';
+  $('hint').textContent='এটি '+mname(cur)+' থেকে প্রতি মাসে নিজে নিজে যোগ হবে। কোনো মাস থেকে থামাতে চাইলে সেই মাসে "মাসিক বন্ধ করুন" চাপুন।';
+  $('date').required=m==='one';
+}
+$('t1').onclick=()=>setMode('one');
+$('t2').onclick=()=>setMode('mon');
+
+$('f').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const S=T.S,amt=parseFloat($('amt').value);
+  if(!(amt>0))return;
+  const note=$('note').value.trim(),cat=$('cat').value;
+  if(mode==='one'){
+    if(!$('date').value)return;
+    S.expenses.push({id:Date.now(),amt,cat,date:$('date').value,note});
+    const d=new Date($('date').value+'T00:00:00');cur=new Date(d.getFullYear(),d.getMonth(),1);
+  }else{
+    S.recurring.push({id:Date.now(),amt,cat,note,day:Math.min(28,Math.max(1,parseInt($('day').value)||1)),from:T.ymd(cur)});
+  }
+  T.commit();
+  $('amt').value='';$('note').value='';$('amt').focus();
+  render();
+  const first=$('list').querySelector('.item');if(first&&mode==='one')first.classList.add('new');
+  T.toast(money(amt)+(mode==='one'?' সেভ হয়েছে।':' মাসিক খরচ হিসেবে সেভ হয়েছে।')+' এই মাসের মোট '+$('total').textContent);
+  $('list').scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('list').addEventListener('click',ev=>{
+  const S=T.S,b=ev.target.closest('button');if(!b)return;
+  if(b.dataset.id){
+    if(confirm('এই খরচটি মুছে ফেলবেন?')){S.expenses=S.expenses.filter(e=>String(e.id)!==b.dataset.id);T.commit();render()}
+  }else if(b.dataset.rid){
+    const r=S.recurring.find(x=>String(x.id)===b.dataset.rid);if(!r)return;
+    const prev=T.ymd(new Date(cur.getFullYear(),cur.getMonth()-1,1));
+    if(confirm('এই মাস থেকে এই মাসিক খরচ বন্ধ করবেন? আগের মাসগুলোর হিসাব থাকবে।')){
+      if(prev<r.from)S.recurring=S.recurring.filter(x=>x!==r);else r.to=prev;
+      T.commit();render();
+    }
+  }
+});
+$('prev').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);render();setMode(mode)};
+$('next').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);render();setMode(mode)};
+$('setbud').onclick=()=>{
+  const v=prompt('প্রতি মাসের বাজেট কত টাকা? (বন্ধ করতে ০ দিন)',T.S.budget||'');
+  if(v===null)return;
+  const n=parseFloat(v);T.S.budget=n>0?n:0;T.commit();render();
+};
+const cfg=T.cfg();$('surl').value=cfg.url;$('skey').value=cfg.key;
+$('sf').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  T.setCfg($('surl').value,$('skey').value);
+  T.sync();
+});
+function download(name,text,type){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$('exp').onclick=()=>download('expenses-backup-'+T.todayStr()+'.json',JSON.stringify(T.S,null,2),'application/json');
+$('csv').onclick=()=>{
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const S=T.S,all=S.expenses.map(e=>[e.date,e.cat,e.amt,e.note,'একবার']);
+  S.recurring.forEach(r=>all.push(['প্রতি মাসে '+r.day+' তারিখ ('+r.from+' থেকে'+(r.to?' '+r.to+' পর্যন্ত':'')+')',r.cat,r.amt,r.note,'মাসিক']));
+  const rows=[['Date','Category','Amount','Note','Type'],...all.sort((a,b)=>String(a[0]).localeCompare(String(b[0])))];
+  download('expenses-'+T.todayStr()+'.csv','\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n'),'text/csv');
+};
+$('imp').onchange=ev=>{
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);if(!Array.isArray(d.expenses))throw 0;
+      if(confirm('বর্তমান ডেটা মুছে ব্যাকআপের ডেটা বসানো হবে। চালিয়ে যাবেন?')){T.set(d);T.commit();render()}
+    }catch(e){alert('ফাইলটি ঠিক নেই। এই অ্যাপ থেকে নামানো JSON ব্যাকআপ দিন।')}
+    ev.target.value='';
+  };
+  r.readAsText(f);
+};
+setMode('one');
+T.start(render);
+</script>
+</body>
+</html>

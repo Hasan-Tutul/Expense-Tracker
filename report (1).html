@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>বছরের রিপোর্ট</title>
+</head>
+<body>
+<main>
+<header>
+  <h1>বছরের রিপোর্ট</h1>
+  <div class="month"><button id="prev" aria-label="আগের বছর">‹</button><b id="ylabel" style="min-width:60px"></b><button id="next" aria-label="পরের বছর">›</button></div>
+</header>
+<div class="stats">
+  <div class="stat big"><small>এই বছরের মোট খরচ</small><b id="total">৳০</b></div>
+  <div class="stat"><small>মাসে গড় খরচ</small><b id="avg">৳০</b></div>
+  <div class="stat"><small>সবচেয়ে বেশি খরচের মাস</small><b id="peak">-</b></div>
+</div>
+<section><h2>মাস অনুযায়ী খরচ</h2><div class="chart" id="chart"></div><p class="note">লাল বারটি সবচেয়ে বেশি খরচের মাস। মাসিক খরচও এতে ধরা আছে।</p></section>
+<section><h2>বছরে কোন খাতে কত গেছে</h2><div id="cats"></div></section>
+</main>
+<script src="store.js"></script>
+<script>
+const T=Store,$=T.$,money=T.money,esc=T.esc;
+const SH=['জানু','ফেব্রু','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টে','অক্টো','নভে','ডিসে'];
+let year=new Date().getFullYear();
+function render(){
+  $('ylabel').textContent=year.toLocaleString('bn-BD',{useGrouping:false});
+  const m=Array(12).fill(0),by={};
+  for(let i=0;i<12;i++)T.monthItems(year+'-'+T.p2(i+1)).forEach(e=>{m[i]+=e.amt;by[e.cat]=(by[e.cat]||0)+e.amt});
+  const total=m.reduce((a,b)=>a+b,0),active=m.filter(v=>v>0).length,max=Math.max(...m);
+  $('total').textContent=money(total);
+  $('avg').textContent=active?money(total/active):'৳০';
+  $('peak').textContent=max>0?T.MONTHS[m.indexOf(max)]:'-';
+  $('chart').innerHTML=m.map((v,i)=>`<div class="col${v===max&&v>0?' top':''}" title="${T.MONTHS[i]}: ${money(v)}"><i style="height:${max?v/max*85:0}%"></i><span>${SH[i]}</span></div>`).join('');
+  const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  $('cats').innerHTML=rows.length?rows.map(([c,v])=>`<div class="cat"><span>${esc(c)}</span><div class="t"><i style="width:${v/total*100}%"></i></div><b>${money(v)}</b></div>`).join(''):'<div class="empty">এই বছরে কোনো খরচ যোগ করা হয়নি</div>';
+}
+$('prev').onclick=()=>{year--;render()};
+$('next').onclick=()=>{year++;render()};
+T.start(render);
+</script>
+</body>
+</html>

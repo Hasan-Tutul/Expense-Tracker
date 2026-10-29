@@ -17,6 +17,7 @@
   <div class="stat"><small>মাসে গড় খরচ</small><b id="avg">৳০</b></div>
   <div class="stat"><small>সবচেয়ে বেশি খরচের মাস</small><b id="peak">-</b></div>
 </div>
+<div class="stat" style="margin-top:10px"><small>না করলেও চলত এমন খরচ (এই বছরে)</small><b id="skt" style="color:var(--red)">৳০</b><small id="skp"></small></div>
 <section><h2>মাস অনুযায়ী খরচ</h2><div class="chart" id="chart"></div><p class="note">লাল বারটি সবচেয়ে বেশি খরচের মাস। মাসিক খরচও এতে ধরা আছে।</p></section>
 <section><h2>বছরে কোন খাতে কত গেছে</h2><div id="cats"></div></section>
 </main>
@@ -27,10 +28,12 @@ const SH=['জানু','ফেব্রু','মার্চ','এপ্রি
 let year=new Date().getFullYear();
 function render(){
   $('ylabel').textContent=year.toLocaleString('bn-BD',{useGrouping:false});
-  const m=Array(12).fill(0),by={};
-  for(let i=0;i<12;i++)T.monthItems(year+'-'+T.p2(i+1)).forEach(e=>{m[i]+=e.amt;by[e.cat||'খাত ঠিক নেই']=(by[e.cat||'খাত ঠিক নেই']||0)+e.amt});
+  const isSkip=e=>e.rec?!!(T.S.recurring.find(r=>r.id===e.rid)||{}).skip:!!e.skip;
+  let sk=0;const m=Array(12).fill(0),by={};
+  for(let i=0;i<12;i++)T.monthItems(year+'-'+T.p2(i+1)).forEach(e=>{m[i]+=e.amt;if(isSkip(e))sk+=e.amt;by[e.cat||'খাত ঠিক নেই']=(by[e.cat||'খাত ঠিক নেই']||0)+e.amt});
   const total=m.reduce((a,b)=>a+b,0),active=m.filter(v=>v>0).length,max=Math.max(...m);
   $('total').textContent=money(total);
+  $('skt').textContent=money(sk);$('skp').textContent=total?'মোট খরচের '+T.bn(sk/total*100)+'% টাকা না খরচ করলেও চলত':'';
   $('avg').textContent=active?money(total/active):'৳০';
   $('peak').textContent=max>0?T.MONTHS[m.indexOf(max)]:'-';
   $('chart').innerHTML=m.map((v,i)=>`<div class="col${v===max&&v>0?' top':''}" title="${T.MONTHS[i]}: ${money(v)}"><i style="height:${max?v/max*85:0}%"></i><span>${SH[i]}</span></div>`).join('');

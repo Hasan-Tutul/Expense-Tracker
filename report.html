@@ -20,6 +20,18 @@
 <div class="stat" style="margin-top:10px"><small>না করলেও চলত এমন খরচ (এই বছরে)</small><b id="skt" style="color:var(--red)">৳০</b><small id="skp"></small></div>
 <section><h2>মাস অনুযায়ী খরচ</h2><div class="chart" id="chart"></div><p class="note">লাল বারটি সবচেয়ে বেশি খরচের মাস। মাসিক খরচও এতে ধরা আছে।</p></section>
 <section><h2>বছরে কোন খাতে কত গেছে</h2><div id="cats"></div></section>
+<section>
+  <h2>তারিখ অনুযায়ী বিস্তারিত খরচ</h2>
+  <div class="tools" style="margin-bottom:10px">
+    <button type="button" data-p="m">এই মাস</button><button type="button" data-p="l">গত মাস</button><button type="button" data-p="y">এই বছর</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div><label for="from">শুরুর তারিখ</label><input id="from" type="date"></div>
+    <div><label for="to">শেষ তারিখ</label><input id="to" type="date"></div>
+  </div>
+  <button class="add" id="show" type="button" style="width:100%;margin-top:10px">বিস্তারিত দেখুন</button>
+  <div id="det" style="margin-top:14px"></div>
+</section>
 </main>
 <script src="store.js"></script>
 <script>
@@ -42,6 +54,40 @@ function render(){
 }
 $('prev').onclick=()=>{year--;render()};
 $('next').onclick=()=>{year++;render()};
+
+const isSk=e=>e.rec?!!(T.S.recurring.find(r=>r.id===e.rid)||{}).skip:!!e.skip;
+const fmtD=d=>d.getFullYear()+'-'+T.p2(d.getMonth()+1)+'-'+T.p2(d.getDate());
+function preset(p){
+  const n=new Date(),y=n.getFullYear(),m=n.getMonth();
+  const r={m:[new Date(y,m,1),new Date(y,m+1,0)],l:[new Date(y,m-1,1),new Date(y,m,0)],y:[new Date(y,0,1),new Date(y,11,31)]}[p];
+  $('from').value=fmtD(r[0]);$('to').value=fmtD(r[1]);
+}
+document.querySelectorAll('button[data-p]').forEach(b=>b.onclick=()=>{preset(b.dataset.p);details()});
+function details(){
+  const f=$('from').value,t=$('to').value;
+  if(!f||!t){T.toast('শুরু ও শেষ দুটো তারিখই দিন');return}
+  if(f>t){T.toast('শুরুর তারিখ শেষ তারিখের আগে হতে হবে');return}
+  const items=[];
+  let y=+f.slice(0,4),m=+f.slice(5,7);
+  const ey=+t.slice(0,4),em=+t.slice(5,7);
+  while(y<ey||(y===ey&&m<=em)){
+    T.monthItems(y+'-'+T.p2(m)).forEach(e=>{if(e.date>=f&&e.date<=t)items.push(e)});
+    if(++m>12){m=1;y++}
+  }
+  items.sort((a,b)=>a.date.localeCompare(b.date)||String(a.id).localeCompare(String(b.id)));
+  if(!items.length){$('det').innerHTML='<div class="empty">এই সময়ে কোনো খরচ পাওয়া যায়নি</div>';return}
+  const tot=items.reduce((s,e)=>s+e.amt,0),sk=items.filter(isSk).reduce((s,e)=>s+e.amt,0);
+  const NC='খাত ঠিক নেই';
+  $('det').innerHTML=`<div class="stats"><div class="stat"><small>মোট খরচ</small><b>${money(tot)}</b></div><div class="stat"><small>খরচের সংখ্যা</small><b>${T.bn(items.length)}টি</b></div></div>`+
+    (sk?`<p class="note">এর মধ্যে ${money(sk)} না করলেও চলত।</p>`:'')+
+    '<div style="margin-top:8px">'+items.map(e=>{
+      const d=new Date(e.date+'T00:00:00');
+      const note=e.who?e.who+'-কে দেওয়া'+(e.note?' · '+e.note:''):e.note;
+      return `<div class="item"><div><div class="n">${esc(e.cat||NC)}${note?' · '+esc(note):''}${e.rec?'<span class="tag">মাসিক</span>':''}${isSk(e)?'<span class="tag" style="background:#ffe3a3;color:#6b4a00">না করলেও চলত</span>':''}</div><div class="m">${d.getDate().toLocaleString('bn-BD')} ${T.MONTHS[d.getMonth()]} ${d.getFullYear().toLocaleString('bn-BD',{useGrouping:false})}</div></div><div class="a">${money(e.amt)}</div></div>`;
+    }).join('')+'</div>';
+}
+$('show').onclick=details;
+preset('m');
 T.start(render);
 </script>
 </body>
